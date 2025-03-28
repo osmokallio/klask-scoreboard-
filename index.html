@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klask Tulospalvelu v2.2</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="main-header">
+        <img src="klask_logo.png" alt="Klask Logo" id="logo" style="max-height: 50px; margin-right: 15px; vertical-align: middle;" onerror="this.style.display='none'">
+        <h1>Klask Tulospalvelu</h1>
+    </header>
+
+    <main class="main-content">
+        <section class="card" id="add-game-card">
+            <h2>Lisää uusi peli</h2>
+            <form id="new-game-form">
+                <div class="form-group">
+                    <label for="game-date">Päivämäärä:</label>
+                    <input type="date" id="game-date" required>
+                </div>
+                <datalist id="player-names-list"></datalist>
+                <div class="players-container">
+                    <fieldset class="player-input">
+                        <legend>Pelaaja 1</legend>
+                        <div class="form-group">
+                            <label for="player1-name">Nimi:</label>
+                            <input type="text" id="player1-name" placeholder="Kirjoita tai valitse nimi" required list="player-names-list" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="player1-score-select">Pisteet:</label>
+                            <select id="player1-score-select" required>
+                                <option value="0">0</option> <option value="1">1</option> <option value="2">2</option> <option value="3">3</option> <option value="4">4</option> <option value="5">5</option> <option value="6">6</option>
+                            </select>
+                        </div>
+                    </fieldset>
+                    <fieldset class="player-input">
+                        <legend>Pelaaja 2</legend>
+                        <div class="form-group">
+                            <label for="player2-name">Nimi:</label>
+                            <input type="text" id="player2-name" placeholder="Kirjoita tai valitse nimi" required list="player-names-list" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="player2-score-select">Pisteet:</label>
+                            <select id="player2-score-select" required>
+                                <option value="0">0</option> <option value="1">1</option> <option value="2">2</option> <option value="3">3</option> <option value="4">4</option> <option value="5">5</option> <option value="6">6</option>
+                            </select>
+                        </div>
+                    </fieldset>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="save-game-btn">Tallenna peli</button>
+                    <p id="error-message" class="error-text" aria-live="polite"></p>
+                </div>
+            </form>
+        </section>
+
+        <section class="card" id="history-card">
+            <h2>Pelatut Pelit</h2>
+            <div id="games-list">
+                <p>Ei tallennettuja pelejä.</p>
+            </div>
+        </section>
+
+        <section class="card" id="stats-card">
+            <h2>Statistiikka</h2>
+            <div id="stats">
+                <p>Ei dataa statistiikkaa varten.</p>
+            </div>
+        </section>
+
+        <section class="card" id="player-management-card">
+            <h2>Hallitse Pelaajia</h2>
+            <p>Voit poistaa pelaajan ja kaikki hänen pelinsä alla olevasta listasta. Ole varovainen, toimintoa ei voi kumota.</p>
+            <div id="player-management-list">
+                <p>Ei pelaajia hallittavaksi.</p>
+            </div>
+        </section>
+
+        <section class="card" id="data-management-card">
+            <h2>Datan Hallinta</h2>
+            <p>Voit tallentaa kaikki pelit ja pelaajatiedot tiedostoon (varmuuskopio) tai tuoda tiedot aiemmin tallennetusta tiedostosta.</p>
+            <div class="data-actions">
+                <button type="button" id="export-data-btn" class="button-secondary">Vie Tiedot Tiedostoon</button>
+                <button type="button" id="import-data-btn" class="button-secondary">Tuo Tiedot Tiedostosta</button>
+                <input type="file" id="import-file-input" accept=".json" style="display: none;">
+                 <p id="import-status" class="status-text" aria-live="polite"></p>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="main-footer">
+        <p>&copy; <span id="current-year"></span> Klask Tulospalvelu</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
