@@ -1,100 +1,700 @@
 <!DOCTYPE html>
-<html lang="fi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Klask Tulospalvelu v2.2</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Klask Scoreboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background-light: #f3f4f6;
+            --background-dark: #111827;
+            --card-light: #ffffff;
+            --card-dark: #1f2937;
+            --text-light: #111827;
+            --text-dark: #e5e7eb;
+            --text-muted-light: #4b5563;
+            --text-muted-dark: #9ca3af;
+            --border-light: #e5e7eb;
+            --border-dark: #374151;
+            --accent-color: #3b82f6;
+            --winner-bg-light: #dbeafe;
+            --winner-bg-dark: #1e3a8a;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-light);
+            color: var(--text-light);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .dark body {
+            background-color: var(--background-dark);
+            color: var(--text-dark);
+        }
+        .card {
+            background-color: var(--card-light);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+            transition: background-color 0.3s;
+        }
+        .dark .card {
+            background-color: var(--card-dark);
+        }
+        .winner {
+            background-color: var(--winner-bg-light) !important;
+            border-left: 4px solid var(--accent-color);
+        }
+        .dark .winner {
+             background-color: var(--winner-bg-dark) !important;
+        }
+        input, select {
+            background-color: transparent;
+            border: 1px solid var(--border-light);
+        }
+        .dark input, .dark select {
+            border-color: var(--border-dark);
+        }
+        input.error, select.error {
+            border-color: #ef4444;
+        }
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 50; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .modal-backdrop.active { opacity: 1; pointer-events: auto; }
+        .modal-content { 
+            width: 90%; max-width: 500px;
+            transform: translateY(-20px); transition: transform 0.3s ease;
+        }
+        .modal-backdrop.active .modal-content { transform: translateY(0); }
+    </style>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
 </head>
-<body>
-    <header class="main-header">
-        <img src="klask_logo.png" alt="Klask Logo" id="logo" style="max-height: 50px; margin-right: 15px; vertical-align: middle;" onerror="this.style.display='none'">
-        <h1>Klask Tulospalvelu</h1>
-    </header>
+<body class="antialiased">
 
-    <main class="main-content">
-        <section class="card" id="add-game-card">
-            <h2>Lisää uusi peli</h2>
-            <form id="new-game-form">
-                <div class="form-group">
-                    <label for="game-date">Päivämäärä:</label>
-                    <input type="date" id="game-date" required>
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <!-- Header -->
+        <header class="text-center mb-8 relative">
+            <div class="flex justify-center items-center mb-4">
+                <svg class="w-24 h-16" viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Shadow -->
+                    <path d="M5 20 L45 5 L95 20 L55 35 Z" fill="#000" fill-opacity="0.1" transform="translate(2, 4)"/>
+                    <!-- Board Wood -->
+                    <path d="M5 20 L45 5 L95 20 L55 35 Z" fill="#f0dca5" stroke="#d4b881" stroke-width="1"/>
+                    <!-- Playing Surface -->
+                    <path d="M10 21 L45 8 L90 21 L55 32 Z" fill="#0b3c6e"/>
+                    <!-- Striker -->
+                    <circle cx="65" cy="18" r="3" fill="#222"/>
+                    <rect x="64" y="8" width="2" height="10" fill="#222"/>
+                    <!-- Ball -->
+                    <circle cx="35" cy="24" r="3" fill="#fbb000"/>
+                </svg>
+            </div>
+            <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight">Klask Scoreboard</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-2">Track your games and dominate the arena.</p>
+            <button id="theme-toggle" class="absolute top-0 right-0 p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700">
+                <svg id="theme-toggle-dark-icon" class="h-6 w-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                <svg id="theme-toggle-light-icon" class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 14.95a1 1 0 010-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414 0zM3 11a1 1 0 100-2H2a1 1 0 100 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
+            </button>
+        </header>
+
+        <!-- Main Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Add Game Form -->
+                <div class="card">
+                    <h2 class="text-2xl font-semibold mb-4 border-b dark:border-gray-600 pb-2">Add New Game</h2>
+                    <form id="add-game-form" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="player1-name" class="block text-sm font-medium mb-1">Player 1</label>
+                                <input type="text" id="player1-name" list="player-names" class="w-full p-2 rounded-md" placeholder="Name">
+                            </div>
+                            <div>
+                                <label for="player1-score" class="block text-sm font-medium mb-1">Score</label>
+                                <select id="player1-score" class="w-full p-2 rounded-md"></select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="player2-name" class="block text-sm font-medium mb-1">Player 2</label>
+                                <input type="text" id="player2-name" list="player-names" class="w-full p-2 rounded-md" placeholder="Name">
+                            </div>
+                             <div>
+                                <label for="player2-score" class="block text-sm font-medium mb-1">Score</label>
+                                <select id="player2-score" class="w-full p-2 rounded-md"></select>
+                            </div>
+                        </div>
+                        <datalist id="player-names"></datalist>
+                        <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200">Record Game</button>
+                        <p id="form-error" class="text-red-500 text-sm h-4 text-center"></p>
+                    </form>
                 </div>
-                <datalist id="player-names-list"></datalist>
-                <div class="players-container">
-                    <fieldset class="player-input">
-                        <legend>Pelaaja 1</legend>
-                        <div class="form-group">
-                            <label for="player1-name">Nimi:</label>
-                            <input type="text" id="player1-name" placeholder="Kirjoita tai valitse nimi" required list="player-names-list" autocomplete="off">
+
+                <!-- Data & Player Management -->
+                <div class="card">
+                    <h2 class="text-2xl font-semibold mb-4 border-b dark:border-gray-600 pb-2">Management</h2>
+                    <div class="space-y-4">
+                        <div id="player-management-section">
+                             <h3 class="text-lg font-semibold mb-2">Players</h3>
+                             <div id="player-management-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
                         </div>
-                        <div class="form-group">
-                            <label for="player1-score-select">Pisteet:</label>
-                            <select id="player1-score-select" required>
-                                <option value="0">0</option> <option value="1">1</option> <option value="2">2</option> <option value="3">3</option> <option value="4">4</option> <option value="5">5</option> <option value="6">6</option>
-                            </select>
+                         <div class="grid grid-cols-2 gap-4 pt-4 border-t dark:border-gray-600">
+                            <button id="export-data-btn" class="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition">Export JSON</button>
+                            <label class="w-full text-center bg-gray-200 dark:bg-gray-600 py-2 px-4 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 cursor-pointer">
+                                <span>Import JSON</span>
+                                <input type="file" id="import-data-input" class="hidden" accept=".json">
+                            </label>
                         </div>
-                    </fieldset>
-                    <fieldset class="player-input">
-                        <legend>Pelaaja 2</legend>
-                        <div class="form-group">
-                            <label for="player2-name">Nimi:</label>
-                            <input type="text" id="player2-name" placeholder="Kirjoita tai valitse nimi" required list="player-names-list" autocomplete="off">
-                        </div>
-                        <div class="form-group">
-                            <label for="player2-score-select">Pisteet:</label>
-                            <select id="player2-score-select" required>
-                                <option value="0">0</option> <option value="1">1</option> <option value="2">2</option> <option value="3">3</option> <option value="4">4</option> <option value="5">5</option> <option value="6">6</option>
-                            </select>
-                        </div>
-                    </fieldset>
+                    </div>
                 </div>
-                <div class="form-actions">
-                    <button type="button" id="save-game-btn">Tallenna peli</button>
-                    <p id="error-message" class="error-text" aria-live="polite"></p>
+            </div>
+
+            <!-- Right Column -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Statistics -->
+                <div class="card">
+                    <h2 class="text-2xl font-semibold mb-4 border-b dark:border-gray-600 pb-2">Statistics</h2>
+                    <div id="stats-display" class="grid grid-cols-1 sm:grid-cols-2 gap-6"></div>
+                    <div id="wins-chart-container" class="mt-6 pt-6 border-t dark:border-gray-600" style="display: none;">
+                        <h3 class="text-xl font-semibold mb-2 text-center">Total Wins</h3>
+                        <div class="h-64 relative">
+                             <canvas id="wins-chart"></canvas>
+                        </div>
+                    </div>
                 </div>
-            </form>
-        </section>
-
-        <section class="card" id="history-card">
-            <h2>Pelatut Pelit</h2>
-            <div id="games-list">
-                <p>Ei tallennettuja pelejä.</p>
+                
+                <!-- Game History -->
+                <div class="card">
+                    <h2 class="text-2xl font-semibold mb-4 border-b dark:border-gray-600 pb-2">Game History</h2>
+                    <div id="game-history" class="space-y-3 max-h-[600px] overflow-y-auto">
+                        <p class="text-gray-500 dark:text-gray-400">No games recorded yet.</p>
+                    </div>
+                </div>
             </div>
-        </section>
-
-        <section class="card" id="stats-card">
-            <h2>Statistiikka</h2>
-            <div id="stats">
-                <p>Ei dataa statistiikkaa varten.</p>
+        </div>
+    </div>
+    
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="modal-backdrop">
+        <div class="modal-content card">
+            <h3 id="modal-title" class="text-xl font-bold mb-4">Confirmation</h3>
+            <p id="modal-message" class="mb-6"></p>
+            <div class="flex justify-end space-x-3">
+                <button id="modal-cancel-btn" class="bg-gray-300 dark:bg-gray-600 py-2 px-4 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 transition">Cancel</button>
+                <button id="modal-confirm-btn" class="bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition">Confirm</button>
             </div>
-        </section>
+        </div>
+    </div>
 
-        <section class="card" id="player-management-card">
-            <h2>Hallitse Pelaajia</h2>
-            <p>Voit poistaa pelaajan ja kaikki hänen pelinsä alla olevasta listasta. Ole varovainen, toimintoa ei voi kumota.</p>
-            <div id="player-management-list">
-                <p>Ei pelaajia hallittavaksi.</p>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // STATE
+    let state = {
+        games: [],
+        players: [],
+    };
+
+    // DOM ELEMENTS
+    const addGameForm = document.getElementById('add-game-form');
+    const player1NameInput = document.getElementById('player1-name');
+    const player1ScoreSelect = document.getElementById('player1-score');
+    const player2NameInput = document.getElementById('player2-name');
+    const player2ScoreSelect = document.getElementById('player2-score');
+    const playerDatalist = document.getElementById('player-names');
+    const formErrorEl = document.getElementById('form-error');
+    const gameHistoryEl = document.getElementById('game-history');
+    const statsDisplayEl = document.getElementById('stats-display');
+    const playerManagementListEl = document.getElementById('player-management-list');
+    const exportDataBtn = document.getElementById('export-data-btn');
+    const importDataInput = document.getElementById('import-data-input');
+
+    // CHART ELEMENTS
+    const winsChartCanvas = document.getElementById('wins-chart');
+    const winsChartContainer = document.getElementById('wins-chart-container');
+    let winsChart = null;
+
+    // MODAL ELEMENTS
+    const confirmationModal = document.getElementById('confirmation-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalMessage = document.getElementById('modal-message');
+    const modalCancelBtn = document.getElementById('modal-cancel-btn');
+    const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+    let confirmCallback = null;
+
+    // THEME ELEMENTS
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const darkIcon = document.getElementById('theme-toggle-dark-icon');
+    const lightIcon = document.getElementById('theme-toggle-light-icon');
+    const htmlEl = document.documentElement;
+
+    // --- INITIALIZATION ---
+    function initialize() {
+        // Setup score dropdowns (0-6)
+        for (let i = 0; i <= 6; i++) {
+            [player1ScoreSelect, player2ScoreSelect].forEach(select => {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i;
+                select.appendChild(option);
+            });
+        }
+        player1ScoreSelect.value = 6; // Default winner score
+        player2ScoreSelect.value = 0; // Default loser score
+
+        // Load data and theme
+        loadState();
+        initializeTheme();
+        
+        // Initial render
+        renderAll();
+
+        // Setup event listeners
+        addGameForm.addEventListener('submit', handleAddGame);
+        exportDataBtn.addEventListener('click', exportData);
+        importDataInput.addEventListener('change', importData);
+        themeToggleBtn.addEventListener('click', () => setTheme(htmlEl.classList.contains('dark') ? 'light' : 'dark'));
+        modalCancelBtn.addEventListener('click', closeModal);
+        modalConfirmBtn.addEventListener('click', () => {
+            if (confirmCallback) confirmCallback();
+            closeModal();
+        });
+    }
+
+    // --- THEME MANAGEMENT ---
+    function setTheme(theme) {
+        if (theme === 'dark') {
+            htmlEl.classList.add('dark');
+            darkIcon.classList.remove('hidden');
+            lightIcon.classList.add('hidden');
+        } else {
+            htmlEl.classList.remove('dark');
+            darkIcon.classList.add('hidden');
+            lightIcon.classList.remove('hidden');
+        }
+        localStorage.setItem('klaskTheme', theme);
+        renderStatistics(); // Redraw stats & chart with new colors
+    }
+
+    function initializeTheme() {
+        const savedTheme = localStorage.getItem('klaskTheme');
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (savedTheme) {
+            setTheme(savedTheme);
+        } else if (systemPrefersDark) {
+            setTheme('dark');
+        } else {
+            setTheme('light');
+        }
+    }
+
+    // --- STATE & RENDERING ---
+    function saveState() {
+        localStorage.setItem('klaskState', JSON.stringify(state));
+    }
+
+    function loadState() {
+        const savedState = localStorage.getItem('klaskState');
+        if (savedState) {
+            state = JSON.parse(savedState);
+        }
+    }
+
+    function renderAll() {
+        renderPlayerDatalist();
+        renderGameHistory();
+        renderStatistics();
+        renderPlayerManagement();
+    }
+    
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>"'`]/g, match => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+            '`': '&#96;'
+        }[match]));
+    }
+
+    function renderPlayerDatalist() {
+        playerDatalist.innerHTML = state.players.map(p => `<option value="${escapeHtml(p)}"></option>`).join('');
+    }
+
+    function renderGameHistory() {
+        if (state.games.length === 0) {
+            gameHistoryEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400">No games recorded yet.</p>';
+            return;
+        }
+        gameHistoryEl.innerHTML = [...state.games].reverse().map(game => {
+            const winnerName = game.winner;
+            const isP1Winner = winnerName === game.player1;
+            return `
+                <div class="p-3 rounded-md flex justify-between items-center ${isP1Winner ? 'winner' : ''}">
+                    <div>
+                        <span class="font-bold">${escapeHtml(game.player1)}</span>
+                        <span>vs</span>
+                        <span class="font-bold">${escapeHtml(game.player2)}</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400 ml-2">${new Date(game.date).toLocaleDateString()}</span>
+                    </div>
+                    <div class="font-semibold">${game.score1} - ${game.score2}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderStatistics() {
+        const stats = calculateStats();
+        if (!stats) {
+            statsDisplayEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 sm:col-span-2">Play some games to see stats.</p>';
+            winsChartContainer.style.display = 'none';
+            return;
+        }
+        
+        winsChartContainer.style.display = 'block';
+
+        const playerStatsHtml = Object.entries(stats.players)
+            .sort((a,b) => b[1].wins - a[1].wins) // Sort by wins
+            .map(([name, pStats]) => `
+            <div class="mb-4">
+                <h4 class="font-bold text-lg">${escapeHtml(name)}</h4>
+                <ul class="text-sm list-disc pl-5">
+                    <li><strong>Record:</strong> ${pStats.wins} W - ${pStats.losses} L (${pStats.winPercentage}%)</li>
+                    <li><strong>Total/Avg Points:</strong> ${pStats.totalPoints} / ${pStats.avgPoints.toFixed(2)}</li>
+                    <li><strong>Avg. Point Diff:</strong> ${pStats.avgPointDiff.toFixed(2)}</li>
+                </ul>
             </div>
-        </section>
+        `).join('');
 
-        <section class="card" id="data-management-card">
-            <h2>Datan Hallinta</h2>
-            <p>Voit tallentaa kaikki pelit ja pelaajatiedot tiedostoon (varmuuskopio) tai tuoda tiedot aiemmin tallennetusta tiedostosta.</p>
-            <div class="data-actions">
-                <button type="button" id="export-data-btn" class="button-secondary">Vie Tiedot Tiedostoon</button>
-                <button type="button" id="import-data-btn" class="button-secondary">Tuo Tiedot Tiedostosta</button>
-                <input type="file" id="import-file-input" accept=".json" style="display: none;">
-                 <p id="import-status" class="status-text" aria-live="polite"></p>
+        const h2hStatsHtml = Object.entries(stats.h2h).map(([pair, h2hStats]) => {
+            const [p1, p2] = pair.split(' vs ');
+            return `<li class="text-sm">${escapeHtml(p1)} vs ${escapeHtml(p2)}: <strong>${h2hStats[p1]} - ${h2hStats[p2]}</strong></li>`;
+        }).join('');
+
+        const blowout = stats.biggestBlowout.game;
+        const blowoutHtml = blowout ? `${escapeHtml(blowout.winner)} defeated ${escapeHtml(blowout.winner === blowout.player1 ? blowout.player2 : blowout.player1)} by ${stats.biggestBlowout.diff} points (${blowout.score1}-${blowout.score2})` : 'N/A';
+
+        statsDisplayEl.innerHTML = `
+            <div class="sm:col-span-2">
+                <h3 class="text-xl font-semibold mb-2">Overall Records</h3>
+                <ul class="text-sm list-disc pl-5 space-y-1">
+                    <li><strong>Total Games Played:</strong> ${stats.totalGames}</li>
+                    <li><strong>Player with Most Wins:</strong> ${stats.mostWins.name} (${stats.mostWins.stats.wins} wins)</li>
+                    <li><strong>Biggest Blowout:</strong> ${blowoutHtml}</li>
+                </ul>
             </div>
-        </section>
+            <div>
+                <h3 class="text-xl font-semibold mt-4 mb-2">Head-to-Head</h3>
+                <ul class="space-y-1">${h2hStatsHtml || '<li>Play games to see H2H stats.</li>'}</ul>
+            </div>
+            <div>
+                 <h3 class="text-xl font-semibold mt-4 mb-2">Player Leaderboard</h3>
+                 <div class="max-h-52 overflow-y-auto pr-2">
+                    ${playerStatsHtml}
+                 </div>
+            </div>
+        `;
 
-    </main>
+        updateWinsChart(stats.players);
+    }
 
-    <footer class="main-footer">
-        <p>&copy; <span id="current-year"></span> Klask Tulospalvelu</p>
-    </footer>
+    function renderPlayerManagement() {
+        if (state.players.length === 0) {
+            playerManagementListEl.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No players to manage.</p>';
+            return;
+        }
+        playerManagementListEl.innerHTML = state.players.map(player => `
+            <div class="flex justify-between items-center text-sm p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600">
+                <span>${escapeHtml(player)}</span>
+                <button data-player="${escapeHtml(player)}" title="Delete ${escapeHtml(player)}" class="delete-player-btn text-red-500 hover:text-red-700 text-lg leading-none font-bold px-2 rounded">&times;</button>
+            </div>
+        `).join('');
 
-    <script src="script.js"></script>
+        document.querySelectorAll('.delete-player-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const playerName = e.currentTarget.dataset.player;
+                handleDeletePlayer(playerName);
+            });
+        });
+    }
+
+    // --- GAME & PLAYER LOGIC ---
+    function handleAddGame(e) {
+        e.preventDefault();
+        clearErrors();
+
+        const game = {
+            date: new Date().toISOString(),
+            player1: player1NameInput.value.trim(),
+            score1: parseInt(player1ScoreSelect.value),
+            player2: player2NameInput.value.trim(),
+            score2: parseInt(player2ScoreSelect.value)
+        };
+
+        // Validation
+        let isValid = true;
+        if (!game.player1) {
+            player1NameInput.classList.add('error');
+            isValid = false;
+        }
+        if (!game.player2) {
+            player2NameInput.classList.add('error');
+            isValid = false;
+        }
+        if (game.player1 && game.player1 === game.player2) {
+            formErrorEl.textContent = 'Players must have different names.';
+            player1NameInput.classList.add('error');
+            player2NameInput.classList.add('error');
+            isValid = false;
+        }
+        if (game.score1 === game.score2) {
+            formErrorEl.textContent = 'Scores cannot be the same.';
+            player1ScoreSelect.classList.add('error');
+            player2ScoreSelect.classList.add('error');
+            isValid = false;
+        }
+
+        if (!isValid) return;
+
+        game.winner = game.score1 > game.score2 ? game.player1 : game.player2;
+        state.games.push(game);
+
+        // Add new players to the list
+        [game.player1, game.player2].forEach(p => {
+            if (!state.players.includes(p)) {
+                state.players.push(p);
+            }
+        });
+        
+        saveState();
+        renderAll();
+        addGameForm.reset();
+        player1ScoreSelect.value = 6;
+        player2ScoreSelect.value = 0;
+    }
+
+    function handleDeletePlayer(playerName) {
+        showConfirmation(
+            'Delete Player?',
+            `Are you sure you want to delete "${playerName}"? This will remove them and all games they participated in permanently. This action cannot be undone.`,
+            () => {
+                // Remove player from players list
+                state.players = state.players.filter(p => p !== playerName);
+                // Remove games involving the player
+                state.games = state.games.filter(g => g.player1 !== playerName && g.player2 !== playerName);
+                saveState();
+                renderAll();
+            }
+        );
+    }
+    
+    function clearErrors() {
+        formErrorEl.textContent = '';
+        player1NameInput.classList.remove('error');
+        player1ScoreSelect.classList.remove('error');
+        player2NameInput.classList.remove('error');
+        player2ScoreSelect.classList.remove('error');
+    }
+
+    function calculateStats() {
+        if (state.games.length === 0) return null;
+        
+        const playerStats = {};
+        state.players.forEach(p => {
+            playerStats[p] = {
+                wins: 0, losses: 0, gamesPlayed: 0, totalPoints: 0, totalPointDiff: 0
+            };
+        });
+
+        const h2h = {};
+        let biggestBlowout = { diff: 0, game: null };
+
+        state.games.forEach(game => {
+            const { player1, score1, player2, score2, winner } = game;
+            
+            if (!playerStats[player1] || !playerStats[player2]) return;
+
+            playerStats[player1].gamesPlayed++;
+            playerStats[player2].gamesPlayed++;
+            playerStats[player1].totalPoints += score1;
+            playerStats[player2].totalPoints += score2;
+
+            const diff = Math.abs(score1 - score2);
+            if (diff > biggestBlowout.diff) {
+                biggestBlowout = { diff, game };
+            }
+            playerStats[player1].totalPointDiff += diff;
+            playerStats[player2].totalPointDiff += diff;
+            
+            if (winner === player1) {
+                playerStats[player1].wins++;
+                playerStats[player2].losses++;
+            } else {
+                playerStats[player2].wins++;
+                playerStats[player1].losses++;
+            }
+
+            const pair = [player1, player2].sort().join(' vs ');
+            if (!h2h[pair]) {
+                h2h[pair] = { [player1]: 0, [player2]: 0 };
+            }
+            h2h[pair][winner]++;
+        });
+
+        Object.values(playerStats).forEach(p => {
+            p.winPercentage = p.gamesPlayed > 0 ? ((p.wins / p.gamesPlayed) * 100).toFixed(0) : 0;
+            p.avgPoints = p.gamesPlayed > 0 ? p.totalPoints / p.gamesPlayed : 0;
+            p.avgPointDiff = p.gamesPlayed > 0 ? p.totalPointDiff / p.gamesPlayed : 0;
+        });
+
+        const mostWins = Object.entries(playerStats).reduce((leader, [name, stats]) => {
+            if (!leader || stats.wins > leader.stats.wins) {
+                return { name, stats };
+            }
+            return leader;
+        }, null);
+
+        return {
+            totalGames: state.games.length,
+            players: playerStats,
+            h2h: h2h,
+            biggestBlowout,
+            mostWins
+        };
+    }
+
+    // --- DATA MANAGEMENT ---
+    function exportData() {
+        if (state.games.length === 0 && state.players.length === 0) {
+            alert("No data to export."); // Consider a custom modal for this
+            return;
+        }
+        const dataStr = JSON.stringify(state, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        const date = new Date().toISOString().slice(0, 10);
+        link.download = `klask-scores-${date}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const importedState = JSON.parse(e.target.result);
+                if (!importedState.players || !Array.isArray(importedState.players) || !importedState.games || !Array.isArray(importedState.games)) {
+                    throw new Error("Invalid file format.");
+                }
+                showConfirmation(
+                    'Import Data?',
+                    'This will overwrite all current data. Are you sure you want to proceed?',
+                    () => {
+                        state = importedState;
+                        saveState();
+                        renderAll();
+                    }
+                );
+            } catch (error) {
+                alert(`Error importing data: ${error.message}`);
+            } finally {
+                importDataInput.value = '';
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // --- MODAL MANAGEMENT ---
+    function showConfirmation(title, message, onConfirm) {
+        modalTitle.textContent = title;
+        modalMessage.textContent = message;
+        confirmCallback = onConfirm;
+        confirmationModal.classList.add('active');
+    }
+
+    function closeModal() {
+        confirmationModal.classList.remove('active');
+        confirmCallback = null;
+    }
+
+    // --- CHARTING ---
+    function getChartThemeColors() {
+        const isDarkMode = document.documentElement.classList.contains('dark');
+        return {
+            textColor: isDarkMode ? '#e5e7eb' : '#374151',
+            gridColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+        };
+    }
+
+    function updateWinsChart(playerStats) {
+        if (winsChart) {
+            winsChart.destroy();
+        }
+
+        const sortedPlayers = Object.entries(playerStats).sort((a, b) => b[1].wins - a[1].wins);
+        const labels = sortedPlayers.map(p => p[0]);
+        const data = sortedPlayers.map(p => p[1].wins);
+        const themeColors = getChartThemeColors();
+
+        winsChart = new Chart(winsChartCanvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Wins',
+                    data: data,
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { 
+                            stepSize: 1, 
+                            color: themeColors.textColor 
+                        },
+                        grid: { color: themeColors.gridColor }
+                    },
+                    x: {
+                        ticks: { color: themeColors.textColor },
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+
+    // START THE APP
+    initialize();
+});
+</script>
 </body>
 </html>
+
